@@ -21,54 +21,62 @@ with file as csv:
         if tokens[0] == '':
             break
         
-        x_abalone.append((float(tokens[1]), float(tokens[2]), float(tokens[3]), 
-                         float(tokens[4]), float(tokens[5]), float(tokens[6]), float(tokens[7])))
-        
         if tokens[0] == 'M':
-            y_abalone.append(0)
+            x_abalone.append((0.0, float(tokens[1]), float(tokens[2]), float(tokens[3]), 
+                             float(tokens[4]), float(tokens[5]), float(tokens[6]), float(tokens[7])))
         elif tokens[0] == 'F':
-            y_abalone.append(1)
+            x_abalone.append((1.0, float(tokens[1]), float(tokens[2]), float(tokens[3]), 
+                             float(tokens[4]), float(tokens[5]), float(tokens[6]), float(tokens[7])))
         elif tokens[0] == 'I':
-            y_abalone.append(2)
+            x_abalone.append((2.0, float(tokens[1]), float(tokens[2]), float(tokens[3]), 
+                             float(tokens[4]), float(tokens[5]), float(tokens[6]), float(tokens[7])))
+            
+        y_abalone.append(tokens[8])
         
-x_abalone = np.array(x_abalone, dtype=(float)).reshape(-1, 7)
+x_abalone = np.array(x_abalone, dtype=(float)).reshape(-1, 8)
 y_abalone = np.array(y_abalone, dtype=(int))
+
+outputs = np.max(y_abalone)
 
 x_train, x_test, y_train, y_test = train_test_split(x_abalone, y_abalone, 
                                                     test_size = 0.2, shuffle=(True))
 
 # normalization theorem
-for column in range(7):
-    x_train[:, column] = (x_train[:, column] - np.min(x_train[:, column])) / (
-        np.max(x_train[:, column]) - np.min(x_train[:, column]))
+#for column in range(8):
+#    x_train[:, column] = tf.math.divide_no_nan((x_train[:, column] - np.min(x_train[:, column])), (
+#        np.max(x_train[:, column]) - np.min(x_train[:, column])))
     
-for column in range(7):
-    x_test[:, column] = (x_test[:, column] - np.min(x_train[:, column])) / (
-        np.max(x_train[:, column]) - np.min(x_train[:, column]))
-    
-output_sol_max = np.max(y_abalone)
+#for column in range(8):
+#    x_test[:, column] = tf.math.divide_no_nan((x_test[:, column] - np.min(x_train[:, column])), (
+#        np.max(x_train[:, column]) - np.min(x_train[:, column])))
+
+tf.keras.utils.normalize(x_train, order=2)
+tf.keras.utils.normalize(x_test, order=2)
 
 # model
 
 model = tf.keras.Sequential([
-        tf.keras.layers.InputLayer(input_shape = (7,)),
-        tf.keras.layers.Dense(77, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+        tf.keras.layers.InputLayer(input_shape = (8,),),
+        tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Dense(50, activation='softmax', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+        tf.keras.layers.Dropout(0.1),
+        tf.keras.layers.Dense(75, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
+        tf.keras.layers.Dropout(0.1),
+        #kernel_regularizer=tf.keras.regularizers.l2(0.001)
         #tf.keras.layers.Dropout(0.5),
-        tf.keras.layers.Dense(49, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
         #tf.keras.layers.Dropout(0.5),
-        tf.keras.layers.Dense(14, activation='sigmoid', kernel_regularizer=tf.keras.regularizers.l2(0.001)),
-        #tf.keras.layers.Dropout(0.5),
-        tf.keras.layers.Dense(3)
+        tf.keras.layers.Dense(outputs + 1 - np.min(y_abalone))
     ])
 
-
+print(np.any(np.isnan(x_train)))
+print(np.any(np.isnan(y_train)))
 
 model.compile(optimizer = 'adam', 
               loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
               metrics = ['accuracy'])
 
 
-history = model.fit(x_train, y_train, epochs=100, batch_size =100, validation_split=0.1)
+history = model.fit(x_train, y_train, epochs=128, batch_size = 128)
 
 loss, accuracy = model.evaluate(x_test, y_test, verbose=2)
 
